@@ -1,5 +1,5 @@
 # sympint
-A python class that uses the best parts from Sympy and Pint to do equation manipulation and dimensional analysis in Jupyter Notebooks.
+A python class that uses the best parts from [Sympy](https://github.com/sympy/sympy) and [Pint](https://github.com/hgrecco/pint) to do equation manipulation and dimensional analysis in Jupyter Notebooks.  Sympy's dimensional analysis is lacking and Pint doesn't contain equation manipulation, so this is an attempt to combine the best of both worlds.  The idea is to manipulate equations and then check the units and evaluate them as needed.
 
 ## Examples:
 ```python
@@ -23,5 +23,6 @@ will display
 * Add tests
 * Display units in TeX
 * Refactor some of the kludges
+* When using SymPy's `solve` function, account for cases with multiple solutions
 * Instead of storing `unit` and `value` as two separate fields, it might be better to only use one field of Pint units, and have a flag as to whether we know the value or only the units, and display it accordingly.
-* Look into derivatives/integration in Sympy and see if we can implement that with Pint
+* Look into derivatives/integration in SymPy and see if we can implement that with Pint
