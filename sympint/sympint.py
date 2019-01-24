@@ -7,108 +7,152 @@ class Symbol(sympy.Symbol):
     def __init__(self,name,parent=None):
         super().__new__(name=name,cls=sympy.Symbol) # call sympy.symbol __new__ method
         self.parent = parent # assign parent
-
-# Main Sympint class
-class Sympint:
+        
+class SymPint:
     def __init__(self,
-                 symbol=None,
-                 expression=None,
+                 name=None,
                  unit=None,
-                 value=None):
-        # If first input is a float or int, assign it to Value and make it dimensionless
-        # example: Sympint(42)
-        if isinstance(symbol,float) or isinstance(symbol,int):
-            self.value = symbol
-            self.unit = ureg.dimensionless
-            self.symbol = None
-            self.expression = sympy.Number(symbol)
-            return
-        # else, symbol should be a string or another sympy symbol
-        # Take input symbol as a string or a 
-        # sympy.Symbol and store it as a sympy.Symbol
-        elif isinstance(symbol,str):
-            self.symbol = Symbol(symbol,parent=self)
-        else:
-            self.symbol = symbol
-        # If Sympint object has no expression, 
-        # set its expression to its own symbol
-        # If it doesn't have a symbol, set it
-        # to an empty string
-        if expression is None:
-            if self.symbol is None:
-                self.expression = None
-            else:
-                self.expression = self.symbol
-        else:
-            self.expression = expression
+                 value=None,
+                 symVal=None,
+                 expression=None,
+                 valueKnown=False,
+                 equals=None,
+                ):
         
-        # unit must be of type 
-        # pint.unit.build_unit_class.<locals>.Unit
-        # (no error handling for this yet)
-        self.unit = unit
         
-        # Value must be float, won't work if some Sympints are floats and some Sympints are ints
-        if value is not None:
-            self.value = float(value)
+        if isinstance(name,str):
+            # e.g. SymPint('a')
+            self.name = name
+            self.symbol = Symbol(self.name,parent=self)
         else:
-            self.value = None
+            # e.g. SymPint(4) or SymPint(expression=a*b)
+            self.name = '\mathrm{unnamed\,expr.}'
+            try:
+                self.symbol = sympy.Number(name)
+                self.unit = ureg.dimensionless
+            except:
+                self.symbol = None
+            if isinstance(name,int) or isinstance(name,float):
+                value = float(name)
+                unit = ureg.dimensionless
             
-    # Set the symbol of sympy part of the object
-    def set_symbol(self,string):
-        self.symbol = symbol(string,parent=self)
-
-    # Set the symbol equal to an expression.
+        
+        self.set_expression(expression)
+        self.set_unit(unit,value)
+        self.set_value(value,valueKnown)
+        
+        if equals is not None:
+            self.equals(equals)
+    
+    # unit stores both our unit and value
+    def set_unit(self,unit,value):
+        if unit is not None:
+            self.unit = unit
+        elif value is not None:
+            self.unit = ureg.dimensionless
+        else:
+            self.unit = None
+    
+    # Value is only used as an input variable
+    def set_value(self,value,valueKnown):
+        if value is not None and valueKnown is False:
+            self.unit = value*self.unit
+            self.valueKnown = True
+        elif valueKnown is False:
+            if self.unit is not None:
+                self.unit = 1.0*self.unit
+            self.valueKnown = False
+        else:
+            self.valueKnown = True
+    
+    def set_expression(self,expression):
+        if expression is not None:
+            self.expression = expression
+            self.expressionKnown = True
+        else:
+            try:
+                self.expression = self.symbol
+            except:
+                self.expression = None
+            self.expressionKnown = False
+            
+    def get_expression(self):
+        if self.expressionKnown:
+            return self.expression
+        else:
+            return self
+            
+    # sets everything equal to other except for name
     def equals(self,other):
-        if other.expression != self.symbol:
-            self.expression = other.expression
-        if (self.unit is None or self.unit == ureg.dimensionless) and (other.unit is not None and other.unit != ureg.dimensionless):
+        if self.unit is None:
             self.unit = other.unit
-        if self.value is None and other.value is not None:
-            self.value = other.value
-
-    # solve the expression for other, and return a new Sympint for the solution
+        if other.unit is not None and self.unit.to_base_units() != other.unit.to_base_units():
+            # known issue, sometimes pint will not recognize equivalent units,
+            # which is why we don't raise an error here
+            print('Warning: units of {} and {} do not match'.format(self,other))
+            self.unit = other.unit
+        self.set_expression(other.get_expression())
+        self.expressionKnown = True
+        if self.valueKnown is False:
+            self.valueKnown = other.valueKnown
+        
     # currently just returns the first expression in the list.  If you wanted
     # to return multiple solutions, remove the [0] and iterate through them.
     def solve_for(self,other):
+        # for example, if we want to solve z=x*y for y, we would call:
+        # >>> y = z.solve_for(y)
+        # and our inputs in this function would be:
+        #    self = SymPint(name='z',expression=x*y)
+        #    other = SymPint(name='y',expression=y)
+
+        # create an equation, e.g. sympy.Eq(z,x*y)
         eq = sympy.Eq(self.symbol,self.expression)
-        expression = sympy.solve(eq,other.symbol)[0]
-        output = Sympint(symbol=other.symbol,expression=expression)
-        output.evaluate()
-        return output
+        # solve the equation for other, e.g. sympy.solve(z=x*y,y), which returns z/x
+        expressions = sympy.solve(eq,other.expression)
+        # Create a new SymPint with name of what we are solving for equal to expression
+        outputs = [SymPint(name=other.name,expression=expression) for expression in expressions]
+        # Evaluate the expression to get units
+        [output.evaluate() for output in outputs]
+        return outputs
     
-    # Recursively evaluate self.expression to get the units and value of the expression
+    #def evaluate(self):
+        
+    
     def evaluate(self):
-        if self.expression.is_Symbol:
+        # if our expression is a Symbol, set our SymPint's values to the Symbol's parent's values
+        if isinstance(self.expression,Symbol):
             self.symbol = self.expression.parent.symbol
-            self.value = self.expression.parent.value
+            self.valueKnown = self.expression.parent.valueKnown
             self.unit = self.expression.parent.unit
+        elif isinstance(self.expression,SymPint):
+            self.valueKnown = self.expression.valueKnown
+            self.unit = self.expression.unit
+        elif isinstance(self.expression,sympy.Number):
+            self.valueKnown = True
+            self.unit = float(self.expression)*ureg.dimensionless
         else:
-            try:
-                self.value = float(self.expression)
-                self.unit = ureg.dimensionless
-            except:
-                output = Sympint()
-                if self.expression.is_Mul or self.expression.is_Add:
-                    for i,arg_sympy in enumerate(self.expression.args):
-                        arg = Sympint(expression=arg_sympy)
-                        arg.evaluate()
-                        if i == 0:
-                            output = arg
-                        else:
-                            if self.expression.is_Mul:
-                                output = output*arg
-                            elif self.expression.is_Add:
-                                output = output + arg
-                elif self.expression.is_Pow:
-                    arg = Sympint(expression=self.expression.as_base_exp()[0])
-                    exponent = Sympint(expression=self.expression.as_base_exp()[1])
-                    arg.evaluate()
-                    exponent.evaluate()
-                    output = arg**exponent
-                    
-                self.unit = output.unit
-                self.value = output.value
-            
+            if self.expression.is_Mul or self.expression.is_Add:
+                for i,arg_sympy in enumerate(self.expression.args):
+                    arg = SymPint(expression=arg_sympy)
+                    arg.evaluate()                    
+                    if i == 0:
+                        output = arg
+                    else:
+                        if self.expression.is_Mul:
+                            output = output*arg
+                        elif self.expression.is_Add:
+                            output = output + arg
+            elif self.expression.is_Pow:
+                arg = SymPint(expression=self.expression.as_base_exp()[0])
+                exponent = SymPint(expression=self.expression.as_base_exp()[1])
+                arg.evaluate()
+                exponent.evaluate()
+                output = arg**exponent
+            else:
+                raise ValueError('operation {} not implemented'.format(operator))
+            self.valueKnown = output.valueKnown
+            self.unit = output.unit
+        
     # override the add, subtract, multiply, divide, and power operations
     def __add__(self,other):
         return self.override_operator(other,'__add__')
@@ -122,79 +166,63 @@ class Sympint:
     def __intdiv__ (self,other):
         return self.override_operator(other,'__intdiv__')
     def __pow__(self,other):
+        #pdb.set_trace()
         return self.override_operator(other,'__pow__')
     
-    # helper function for overriding add, subtract, multiply, divide, and power operations
     def override_operator(self,other,operator):
-        # if the other is not a Sympint, then it is either a number or a sympy number, so we make a Sympint out of it
-        if not isinstance(other,Sympint):
-            try:
-                expression = sympy.Number(other)
-            except:
-                #try expression = sympy.Symbol(other)
-                expression = other
-            try:
-                value = float(other)
-                unit = ureg.dimensionless
-            except:
-                value = None
-                unit = None
-                raise ValueError('cannot convert {} to value'.format(other))
-            other=Sympint(expression=expression,value=value,unit=unit)
-        # Now other is definitely a Sympint
-        # Apply operator to expressions
-        expression = getattr(self.expression,operator)(other.expression)
+        #pdb.set_trace()
+        if not isinstance(other,SymPint):
+            #try:
+                # other is an expression
+             #   other = SymPint(expression=other)
+            #except:
+                # other is an int or float
+                other = SymPint(other)
         try:
-            unit = getattr(self.unit, operator)(other.unit)
+            expression = getattr(self.expression,operator)(other.expression)
         except:
-            if self.unit is None or other.unit is None:
-                unit = None
-
-        if self.unit is None or other.unit is None: # if units are unknown
+            # If above fails, we fall back to sympy's operator
+            return getattr(self.symbol,operator)(other)
+        
+        
+        if self.unit is not None and other.unit is not None:
+            unit = getattr(self.unit,operator)(other.unit)
+        else:
             unit = None
-        elif operator == '__pow__' and other.unit == ureg.dimensionless:
-            unit = self.unit**other.value
-        else:
-            try:   # try applying the operator to the units to see if we get a usable result
-                unit = getattr(self.unit, operator)(other.unit)
-            except:
-                if self.unit == other.unit:
-                    unit = self.unit
-                else:
-                    raise ValueError('ValueError: units "{}" and "{}" do not match for operation method "{}"'.format(self.unit,other.unit,operator))
+        valueKnown = self.valueKnown and other.valueKnown
+        # return unnamed SymPint
+        return SymPint(name='\mathrm{unnamed\,expr.}',unit=unit,expression=expression,valueKnown=valueKnown)
 
-        # set the value of the result
-        if self.value is not None and other.value is not None:
-            value = getattr(self.value, operator)(other.value)
-        #elif self.value is not None:
-        #    value = self.value
+    # this function is from Lauritz V. Thaulow's answer on 
+    # https://stackoverflow.com/questions/13490292/format-number-using-latex-notation-in-python
+    def latex_float(self,f):
+        float_str = "{0:.4g}".format(f)
+        if "e" in float_str:
+            base, exponent = float_str.split("e")
+            return "{0} \\times 10^{{{1}}}".format(base, int(exponent))
         else:
-            value = None
-        return Sympint(symbol=None,expression=expression,unit=unit,value=value)
+            return float_str
     
-    # override __repr__ geared specifically for Jupyter notebooks
     def __repr__(self):
-        # first display the sympy expression
-        if self.symbol is not None and self.expression == self.symbol:
-            display(self.symbol)
-        elif self.symbol is not None and self.expression is not None:
-            display(sympy.Eq(self.symbol,self.expression))
-        elif self.expression is not None:
-            display(self.expression)
-        # then return the symbol, value, and unit for printing
-        if self.symbol is None:
-            symbol = 'unnamed'
-        else:
-            symbol = self.symbol
+        return 'SymPint(name={},expression={},unit={},valueKnown={})'.format(self.name,self.expression,self.unit,self.valueKnown)
+
+    def _repr_latex_(self):
+        latex_rep = []
+        latex_rep.append('$$')
+        latex_rep.append(self.name)
+        if self.expressionKnown:
+            latex_rep.append('=')
+            latex_rep.append(super(type(self.expression), self.expression)._repr_latex_().replace('\\displaystyle ','').replace('$',''))
+        latex_rep.append('\\;\\left[')
+        if self.valueKnown:
+            latex_rep.append('{}\\;'.format(self.latex_float(self.unit.to_base_units().magnitude)))
         if self.unit is None:
-            unit = 'Unknown units'
+            latex_rep.append('\\mathrm{unitless}')
         else:
-            # can only convert to base units after multiplying by one!
-            unit = str((1.0*self.unit).to_base_units())[4:]
-        if self.value is None:
-            value = '\b' # delete space so we don't have two spaces
-        else:
-            value = self.value
-        # kludge alert: printing base units puts a '1.0 ' in front,
-        # so we trim off the first four characters.
-        return '{} = {} [{}]'.format(symbol,value,unit)
+            if self.unit.dimensionless:
+                latex_rep.append('\\mathrm{dimensionless}')
+            else:
+                latex_rep.append(self.unit.to_base_units().units._repr_latex_().replace('$',''))
+        latex_rep.append('\\right]')
+        latex_rep.append('$$')
+        return ' '.join(latex_rep)
