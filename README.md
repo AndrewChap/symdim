@@ -1,5 +1,5 @@
 # Sympint
-A python class that uses the best parts from [Sympy](https://github.com/sympy/sympy) and [Pint](https://github.com/hgrecco/pint) to do equation manipulation and dimensional analysis in Jupyter Notebooks.  Sympy's dimensional analysis is lacking and Pint doesn't contain equation manipulation, so this is an attempt to combine the best of both worlds.  The idea is to manipulate equations and then check the units and evaluate them as needed.
+A python class that uses the best parts from [SymPy](https://github.com/sympy/sympy) and [Pint](https://github.com/hgrecco/pint) to do equation manipulation and dimensional analysis in Jupyter Notebooks.  SymPy's dimensional analysis is lacking and Pint doesn't contain equation manipulation, so this is an attempt to combine the best of both worlds.  The idea is to manipulate equations and then check the units and evaluate them as needed.
 
 ## Examples:
 ```python
