@@ -4,8 +4,8 @@ ureg = pint.UnitRegistry()
 
 # Class that inherits from sympy.Symbol but also gets the 'parent' attribute so we can find the Sympint instance from the symbol
 class Symbol(sympy.Symbol):
-    def __init__(self,name,parent=None):
-        super().__new__(name=name,cls=sympy.Symbol) # call sympy.symbol __new__ method
+    def __init__(self,name,nonnegative=True,parent=None):
+        super().__new__(name=name,nonnegative=nonnegative,cls=sympy.Symbol) # call sympy.symbol __new__ method
         self.parent = parent # assign parent
         
 class SymPint:
@@ -17,24 +17,25 @@ class SymPint:
                  expression=None,
                  valueKnown=False,
                  equals=None,
+                 nonnegative=True,
                 ):
         
         
         if isinstance(name,str):
             # e.g. SymPint('a')
             self.name = name
-            self.symbol = Symbol(self.name,parent=self)
+            self.symbol = Symbol(self.name,nonnegative=nonnegative,parent=self)
         else:
             # e.g. SymPint(4) or SymPint(expression=a*b)
             self.name = '\mathrm{unnamed\,expr.}'
             try:
                 self.symbol = sympy.Number(name)
-                self.unit = ureg.dimensionless
+                self.unit = u.dimensionless_unscaled
             except:
                 self.symbol = None
             if isinstance(name,int) or isinstance(name,float):
-                value = float(name)
-                unit = ureg.dimensionless
+                value = name
+                unit = u.dimensionless_unscaled
             
         
         self.set_expression(expression)
@@ -49,14 +50,15 @@ class SymPint:
         if unit is not None:
             self.unit = unit
         elif value is not None:
-            self.unit = ureg.dimensionless
+            self.unit = u.dimensionless_unscaled
         else:
             self.unit = None
     
     # Value is only used as an input variable
-    def set_value(self,value,valueKnown):
+    def set_value(self,value,valueKnown=True):
         if value is not None and valueKnown is False:
             self.unit = value*self.unit
+            self.symVal = value
             self.valueKnown = True
         elif valueKnown is False:
             if self.unit is not None:
@@ -86,7 +88,7 @@ class SymPint:
     def equals(self,other):
         if self.unit is None:
             self.unit = other.unit
-        if other.unit is not None and self.unit.to_base_units() != other.unit.to_base_units():
+        if other.unit is not None and self.unit.decompose() != other.unit.decompose():
             # known issue, sometimes pint will not recognize equivalent units,
             # which is why we don't raise an error here
             print('Warning: units of {} and {} do not match'.format(self,other))
@@ -115,9 +117,9 @@ class SymPint:
         [output.evaluate() for output in outputs]
         return outputs
     
-    #def evaluate(self):
+    def simplify_expression(self):
+        self.set_expression(sympy.simplify(self.expression))
         
-    
     def evaluate(self):
         # if our expression is a Symbol, set our SymPint's values to the Symbol's parent's values
         if isinstance(self.expression,Symbol):
@@ -129,7 +131,7 @@ class SymPint:
             self.unit = self.expression.unit
         elif isinstance(self.expression,sympy.Number):
             self.valueKnown = True
-            self.unit = float(self.expression)*ureg.dimensionless
+            self.unit = float(self.expression)*u.dimensionless_unscaled
         else:
             if self.expression.is_Mul or self.expression.is_Add:
                 for i,arg_sympy in enumerate(self.expression.args):
@@ -152,6 +154,56 @@ class SymPint:
                 raise ValueError('operation {} not implemented'.format(operator))
             self.valueKnown = output.valueKnown
             self.unit = output.unit
+        
+    # not implemented since it doesn't maintain the correct units
+    #def plug_in_value(self,other):
+    #    # check if value can be expressed as an int:
+    #    #pdb.set_trace()
+    #    intVal = int(other.unit.value)
+    #    floatVal = float(other.unit.value)
+    #    if float(intVal) == floatVal and intVal == int(floatVal):
+    #        value = sympy.Number(intVal)
+    #    else:
+    #        value = sympy.Number(floatVal)
+    #    self.set_expression(self.expression.subs(other.symbol,value))
+        
+    def substitute(self,takeOut,putIn):
+        self.set_expression(self.expression.subs(takeOut.symbol,putIn.symbol))
+        
+    # definite or indefinite integral
+    def integrate(self,diff,lo=None,hi=None):
+        if lo is None and hi is None:
+            integrand = sympy.integrate(self.expression,diff.symbol)
+            result = SymPint(expression=integrand)
+            result.evaluate()
+            return result
+        elif lo is not None and hi is not None:
+            if not isinstance(lo,SymPint):
+                if diff.unit.unit == u.dimensionless_unscaled:
+                    name = diff.name+'_\\mathrm{lo}='+self.latex_float(lo)
+                else:
+                    name = '\\left['+diff.name+'_\\mathrm{lo}='+self.latex_float(lo)+'\\,'+diff.unit.decompose().unit._repr_latex_().replace('$','')+'\\right]'
+                lo = SymPint(name=name,unit=diff.unit.unit,value=lo)
+            if not isinstance(hi,SymPint):
+                if diff.unit.unit == u.dimensionless_unscaled:
+                    name = diff.name+'_\\mathrm{hi}='+self.latex_float(hi)
+                else:
+                    name = '\\left['+diff.name+'_\\mathrm{hi}='+self.latex_float(hi)+'\\,'+diff.unit.decompose().unit._repr_latex_().replace('$','')+'\\right]'
+                hi = SymPint(name=name,unit=diff.unit.unit,value=hi)
+                #hi = sympy.Number(hi)
+            integrand_hi = self.integrate(diff)
+            integrand_hi.substitute(diff,hi)
+            #integrand_hi.plug_in_value(hi) # not yet correctly implemented with units
+            integrand_lo = self.integrate(diff)
+            integrand_lo.substitute(diff,lo)
+            #integrand_lo.plug_in_value(lo) # not yet correctly implemented with units
+            
+            result = integrand_hi - integrand_lo
+            result.simplify_expression()
+            result.evaluate()
+            return result
+        else:
+            raise ValueError('integral input must have either no bounds or both bounds specified')
         
     # override the add, subtract, multiply, divide, and power operations
     def __add__(self,other):
@@ -215,14 +267,14 @@ class SymPint:
             latex_rep.append(super(type(self.expression), self.expression)._repr_latex_().replace('\\displaystyle ','').replace('$',''))
         latex_rep.append('\\;\\left[')
         if self.valueKnown:
-            latex_rep.append('{}\\;'.format(self.latex_float(self.unit.to_base_units().magnitude)))
+            latex_rep.append('{}\\;'.format(self.latex_float(self.unit.decompose().value)))
         if self.unit is None:
             latex_rep.append('\\mathrm{unitless}')
         else:
-            if self.unit.dimensionless:
+            if self.unit == u.dimensionless_unscaled:
                 latex_rep.append('\\mathrm{dimensionless}')
             else:
-                latex_rep.append(self.unit.to_base_units().units._repr_latex_().replace('$',''))
+                latex_rep.append(self.unit.decompose().unit._repr_latex_().replace('$',''))
         latex_rep.append('\\right]')
         latex_rep.append('$$')
         return ' '.join(latex_rep)
