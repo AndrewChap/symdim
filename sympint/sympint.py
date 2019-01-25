@@ -1,6 +1,5 @@
-import pint
 import sympy
-ureg = pint.UnitRegistry()
+from astropy import units as u
 
 # Class that inherits from sympy.Symbol but also gets the 'parent' attribute so we can find the Sympint instance from the symbol
 class Symbol(sympy.Symbol):
@@ -13,7 +12,6 @@ class SymPint:
                  name=None,
                  unit=None,
                  value=None,
-                 symVal=None,
                  expression=None,
                  valueKnown=False,
                  equals=None,
@@ -58,7 +56,6 @@ class SymPint:
     def set_value(self,value,valueKnown=True):
         if value is not None and valueKnown is False:
             self.unit = value*self.unit
-            self.symVal = value
             self.valueKnown = True
         elif valueKnown is False:
             if self.unit is not None:
@@ -155,20 +152,14 @@ class SymPint:
             self.valueKnown = output.valueKnown
             self.unit = output.unit
         
-    # not implemented since it doesn't maintain the correct units
-    #def plug_in_value(self,other):
-    #    # check if value can be expressed as an int:
-    #    #pdb.set_trace()
-    #    intVal = int(other.unit.value)
-    #    floatVal = float(other.unit.value)
-    #    if float(intVal) == floatVal and intVal == int(floatVal):
-    #        value = sympy.Number(intVal)
-    #    else:
-    #        value = sympy.Number(floatVal)
-    #    self.set_expression(self.expression.subs(other.symbol,value))
-        
     def substitute(self,takeOut,putIn):
         self.set_expression(self.expression.subs(takeOut.symbol,putIn.symbol))
+        
+    def derivative(self,diff):
+        derivative = sympy.diff(self.expression,diff.symbol)
+        result = SymPint(expression=derivative)
+        result.evaluate()
+        return result
         
     # definite or indefinite integral
     def integrate(self,diff,lo=None,hi=None):
