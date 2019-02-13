@@ -4,11 +4,12 @@ A python class that uses the best parts from [SymPy](https://github.com/sympy/sy
 ## Examples:
 ```python
 S = Sympint
-x = S('x', unit=ureg.meter, value=5.0)
-L = S('L', unit=ureg.meter, value=3.0)
+from astropy import units as u
+x = S('x', unit=u.m, value=5.0)
+L = S('L', unit=u.m, value=3.0)
 Zw = S('Z_w')
-T0 = S('T_0', unit=ureg.kelvin,value=300.0)
-T0.equals(Zw**(x/L-S(1)/S(2))) # enclose '1' and '2' in Sympint so python doesn't evaluate them 1/2 as 0.5
+T0 = S('T_0', unit=u.K,value=300.0)
+T0.equals(Zw**(x/L-S(1)/S(2))) # enclose '1' and '2' in Sympint so python doesn't evaluate 1/2 as 0.5
 display(T0)
 # now solve for Zw, whatever that is
 Zw = T0.solve_for(Zw)
