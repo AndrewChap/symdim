@@ -9,7 +9,7 @@ pip install symdim
 
 ## Examples:
 ```python
-from SymPy import sympy as S
+from SymDim import symdim as S
 from astropy import units as u
 x = S('x', unit=u.m, value=5.0)
 L = S('L', unit=u.m, value=3.0)
