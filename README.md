@@ -4,7 +4,7 @@ A python class that uses the computer algebra of [SymPy](https://github.com/symp
 ## Installation
 Install SymDim and its dependencies [SymPy](https://github.com/sympy/sympy), [Astropy](https://github.com/astropy/astropy), and [num2tex](https://github.com/andrewchap/num2tex) with
 ```bash
-pip install sympy
+pip install symdim
 ```
 
 ## Examples:
