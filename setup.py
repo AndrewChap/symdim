@@ -1,10 +1,17 @@
 from setuptools import setup
 
-setup(name='SymPint',
-      version='0.1',
-      description='An algebraic manipulation and dimensional analysis tool using SymPy and Pint',
-      url='http://github.com/AndrewChap/sympint',
+setup(name='symdim',
+      version='0.0',
+      description='An algebraic manipulation and dimensional analysis tool using SymPy and Astropy.units',
+      url='http://github.com/AndrewChap/symdim',
       author='Andrew Chap',
       author_email='andrew@andrewchap.com',
       license='MIT',
-      packages=['sympint'])
+      packages=['symdim'],
+      install_requires=[
+          'num2tex',
+          'sympy',
+          'astropy',
+      ],
+      zip_safe=False,
+      )
