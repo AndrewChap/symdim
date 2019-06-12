@@ -1,6 +1,12 @@
 # SymDim
 A python class that uses the computer algebra of [SymPy](https://github.com/sympy/sympy) and the unit system of [Astropy](https://github.com/astropy/astropy) to do equation manipulation and dimensional analysis in Jupyter Notebooks.  SymPy's dimensional analysis is lacking and Astropy doesn't contain equation manipulation, so this is an attempt to combine the best of both worlds.  The idea is to manipulate equations and then check the units and evaluate them as needed.
 
+## Installation
+Install SymDim and its dependencies [SymPy](https://github.com/sympy/sympy), [Astropy](https://github.com/astropy/astropy), and [num2tex](https://github.com/andrewchap/num2tex) with
+```bash
+pip install sympy
+```
+
 ## Examples:
 ```python
 S = Sympint
