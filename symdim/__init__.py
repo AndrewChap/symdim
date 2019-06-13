@@ -5,7 +5,7 @@ from num2tex import num2tex
 # Class that inherits from sympy.Symbol but also gets the 'parent' attribute so we can find the SymDim instance from the symbol
 class Symbol(sympy.Symbol):
     def __init__(self,name,nonnegative=True,parent=None):
-        super().__new__(name=name,nonnegative=nonnegative,real=True,cls=sympy.Symbol) # call sympy.symbol __new__ method
+        super(Symbol,self).__new__(name=name,nonnegative=nonnegative,real=True,cls=sympy.Symbol) # call sympy.symbol __new__ method
         self.parent = parent # assign parent
 
 class SymDim:
