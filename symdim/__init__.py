@@ -1,6 +1,8 @@
 import sympy
 from astropy import units as u
 from num2tex import num2tex
+import num2tex as N
+N.configure(help_text=False,display_singleton=True)
 
 # Class that inherits from sympy.Symbol but also gets the 'parent' attribute so we can find the SymDim instance from the symbol
 class Symbol(sympy.Symbol):
